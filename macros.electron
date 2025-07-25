@@ -1,0 +1,150 @@
+# Note: This does NOT automatically pull Bun/PNPM/Yarn. Those must be specified, this meta macro only sets the bare minimum that is consistently needed for Electron builds.
+%electronmeta()                                                  \
+%global __provides_exclude ^((libffmpeg[.]so.*)|(lib.*\\.so.*))$ \
+%{lua:
+  if not macros["_target_cpu"]:find('aarch64') and not macros["_target_cpu"]:find('armv7') then
+    for arch in string.gmatch(macros["x86_64"], "%S+") do
+      if macros["_target_cpu"] == arch then
+        macros["__requires_exclude"] = '^((libffmpeg[.]so.*)|(lib.*\\\\.so.*)|(.*\\\\aarch64*\\\\so.*))$'
+        macros["_electron_cpu"] = 'x64'
+      end
+    end
+    for arch in string.gmatch(macros["ix86"], "%S+") do
+      if macros["_target_cpu"] == arch then
+        macros["__requires_exclude"] = '^((libffmpeg[.]so.*)|(lib.*\\\\.so.*)|(.*\\\\x86_64*\\\\.so.*)|(.*\\\\x86-64*\\\\.so.*)|(.*\\\\aarch64*\\\\so.*))$'
+        macros["_electron_cpu"] = 'ia32'
+      end
+    end
+  elseif macros["_target_cpu"]:find('aarch64') then
+    macros["__requires_exclude"] = '^((libffmpeg[.]so.*)|(lib.*\\\\.so.*)|(.*\\\\x86_64*\\\\.so.*)|(.*\\\\x86-64*\\\\.so.*))$'
+    macros["_electron_cpu"] = 'arm64'
+    print("BuildRequires: zlib-ng-compat-devel")
+  elseif macros["_target_cpu"]:find('armv7') then
+    macros["__requires_exclude"] = '^((libffmpeg[.]so.*)|(lib.*\\\\.so.*)|(.*\\\\x86_64*\\\\.so.*)|(.*\\\\x86-64*\\\\.so.*)|(.*\\\\aarch64*\\\\so.*))$'
+    macros["_electron_cpu"] = 'armv7l'
+    print("BuildRequires: zlib-ng-compat-devel")
+  end}                                                           \
+BuildRequires: desktop-file-utils                                \
+BuildRequires: gcc                                               \
+BuildRequires: gcc-c++                                           \
+BuildRequires: git                                               \
+BuildRequires: make                                              \
+BuildRequires: nodejs                                            \
+BuildRequires: nodejs-npm                                        \
+BuildRequires: python3
+
+# While Bun itself doesn't use NPM env vars directly, some NodeJS build deps such as Electron Builder do
+%__bun /usr/bin/env NPM_CONFIG_USERCONFIG=%{rpmbuilddir}/.npmrc NPM_CONFIG_GLOBALCONFIG=%{rpmbuilddir}/npmrc NPM_CONFIG_CACHE=%{rpmbuilddir}/.npm NPM_CONFIG_LOGLEVEL=error NPM_CONFIG_FUND=false NPM_CONFIG_INIT_MODULE=%{rpmbuilddir}/.npm-init.js NPM_CONFIG_INIT.MODULE=%{rpmbuilddir}/.npm-init.js NPM_CONFIG_LOGS_DIR=null BUN_HOME=%{rpmbuilddir}/.bun /usr/bin/bun
+
+# NPM is usually NOT how Electron projects are built and almost any other build system is preferrable
+# -e: "Extra." Extra project-specific arguments to run in between NPM install and the actual build.
+# -v: "Vite." Run electron-vite builds.
+%npm_build(ev)                                                                               \
+%{__npm} install                                                                             \
+%{lua:
+  if opt.e then
+    for i, cmd in ipairs(arg) do
+      print("%{__npm} run " .. cmd .. "\\n")
+    end
+  end}                                                                                       \
+%{-v:HOME=%{rpmbuilddir} %{__npm} run electron-vite build}                                   \
+HOME=%{rpmbuilddir} %{__npm} run electron-builder --linux --%{_electron_cpu} --publish=never
+
+# -e: "Extra." Extra project-specific arguments to run in between Bun install and the actual build.
+# -v: "Vite." Run electron-vite builds
+%bun_build(ev)                                                                           \
+%{__bun} install                                                                         \
+%{lua:
+  if opt.e then
+    for i, cmd in ipairs(arg) do
+      print("%{__bun} run " .. cmd .. "\\n")
+    end
+  end}                                                                                   \
+%{-v:HOME=%{rpmbuilddir} %{__bun} electron-vite build}                                   \
+HOME=%{rpmbuilddir} %{__bun} electron-builder --linux --%{_electron_cpu} --publish=never
+
+# ONLY use if PNPM is not usable from the repos for some reason
+%vendor_pnpm()                                                                    \
+   PNPM_HOME=%{rpmbuilddir}/pnpm curl -fsSL https://get.pnpm.io/install.sh | sh - \
+   %bcond vendored_pnpm 1
+
+# While PNPM itself doesn't use NPM env vars directly, some NodeJS build deps such as Electron Builder do
+%__pnpm NPM_CONFIG_USERCONFIG=%{rpmbuilddir}/.npmrc NPM_CONFIG_GLOBALCONFIG=%{rpmbuilddir}/npmrc NPM_CONFIG_CACHE=%{rpmbuilddir}/.npm NPM_CONFIG_LOGLEVEL=error NPM_CONFIG_FUND=false NPM_CONFIG_INIT_MODULE=%{rpmbuilddir}/.npm-init.js NPM_CONFIG_INIT.MODULE=%{rpmbuilddir}/.npm-init.js NPM_CONFIG_LOGS_DIR=null PNPM_HOME=%{rpmbuilddir}/pnpm %{?with_vendored_pnpm:%{rpmbuilddir}/pnpm/pnpm}%{!?with_vendored_pnpm:/usr/bin/pnpm}
+
+# -e: "Extra." Extra project-specific arguments to run in between PNPM install and the actual build.
+# -v: "Vite." Run electron-vite builds.
+%pnpm_build(ev)                                                                           \
+%{__pnpm} install                                                                         \
+%{lua:
+  if opt.e then
+    for i, cmd in ipairs(arg) do
+      print("%{__pnpm} run " .. cmd .. "\\n")
+    end
+  end}                                                                                    \
+%{-v:HOME=%{rpmbuilddir} %{__pnpm} electron-vite build}                                   \
+HOME=%{rpmbuilddir} %{__pnpm} electron-builder --linux --%{_electron_cpu} --publish=never
+
+# While Yarn itself doesn't use NPM env vars directly, some NodeJS build deps such as Electron Builder do
+%__yarn NPM_CONFIG_USERCONFIG=%{rpmbuilddir}/.npmrc NPM_CONFIG_GLOBALCONFIG=%{rpmbuilddir}/npmrc NPM_CONFIG_CACHE=%{rpmbuilddir}/.npm NPM_CONFIG_LOGLEVEL=error NPM_CONFIG_FUND=false NPM_CONFIG_INIT_MODULE=%{rpmbuilddir}/.npm-init.js NPM_CONFIG_INIT.MODULE=%{rpmbuilddir}/.npm-init.js NPM_CONFIG_LOGS_DIR=null YARN_CACHE_FOLDER=%{rpmbuilddir}/yarn /usr/bin/yarn
+
+# -e: "Extra." Extra project-specific arguments to run in between Yarn install and the actual build.
+# -v: "Vite." Run electron-vite builds.
+%yarn_build(ev)                                                                           \
+%{__yarn} install                                                                         \
+%{lua:
+  if opt.e then
+    for i, cmd in ipairs(arg) do
+      print("%{__yarn} run " .. cmd .. "\\n")
+    end
+  end}                                                                                    \
+%{-v:HOME=%{rpmbuilddir} %{__yarn} electron-vite build}                                   \
+HOME=%{rpmbuilddir} %{__yarn} electron-builder --linux --%{_electron_cpu} --publish=never
+
+# If no alternative names are provided via flag everything fals back to the name set by the spec
+# -b: "Binary." Name of the actual executable file.
+# -d: "Directory." Choose a different name for the install directory in /usr/share
+# -D: "Desktop file." Handle automatic installation of .desktop file.
+# -E: "Enable features." For use with desktop file install.
+# -O: "Ozone platform." For use with desktop file install
+# -U:  Set %u or %U in the desktop file.
+# -i: "Icons." Choose a different name to install the icon files under.
+# -l: "Licenses." Use this if you want to collect all extra licenses into a directory called bundled_licenses automatically to package them via RPM. DOES NOT include build dep licenses.
+# -s: "Symlink." Name of the symlink to the executable.
+# -S: Additional symlink to the binary. ONLY do this if a program has two common names, i.e, Heroic being called both "heroic" and "heroic-games-launcher"
+%electron_install(b:d:DE:i:lOs:S:U:) %{lua:
+   local bin = macros["-b*"] or macros["name"]
+   local dir = macros["-d*"] or macros["name"]
+   local link = macros["-s*"] or macros["name"]
+   local arch = macros["_electron_cpu"]
+   -- Wildcards for linux-*unpacked CANNOT be used because Electron projects can build multiple architectures at once!
+   if arch ~= 'x64' then
+     print("cp -pr dist/linux-" .. arch .. "-unpacked/* -t %{buildroot}%{_datadir}/" .. dir .. "\\n")
+   else
+     print("cp -pr dist/linux-unpacked/* -t %{buildroot}%{_datadir}/" .. dir .. "\\n")
+   end
+   print("mkdir -p %{buildroot}%{_bindir}\\n")
+   print("ln -sf %{_datadir}/" .. dir .. "/" .. bin .. " %{buildroot}%{_bindir}/" .. link .. "\\n")
+   if opt.S then
+     print("ln -sf %{_datadir}/" .. dir .. "/" .. bin .. " %{buildroot}%{_bindir}/" .. macros["-S*"] .. "\\n")
+   end
+   if opt.D then
+   -- Wildcards cannot be used here for similar reasons.
+     if arch == 'arm64' or arch == 'armv7l' then
+       print("dist/*" .. arch .. ".AppImage --appimage-extract '*.desktop'\\n")
+     elseif arch == 'ia32' then
+       print("dist/*i386.AppImage --appimage-extract '*.desktop'\\n")
+     elseif arch == 'x64' then
+       print("dist/*x86_64.AppImage --appimage-extract '*.desktop'\\n")
+     end
+   print("desktop-file-install --set-key=Exec --set-value=\\"%{_datadir}" .. "/" .. dir .. "/" .. bin .. rpm.expand("%{?-E: --enable=features=%{-E*}}") .. rpm.expand("%{?-O: --ozone-platform-hint=auto}")  .. rpm.expand("%{?-U: %{-U*}}") .. "\\"" .. " squashfs-root/*.desktop")
+   end}                                                                                                                            \
+%{?-l:export LICENSE_DIR=bundled_licenses && mkdir $LICENSE_DIR}                                                                   \
+%{?-l:mv $(find . -iname "*LICENSE*" -not -path "." -and -not -path "./node_modules/*" -and -not -path "./public/*" -and -not -name "$LICENSE_DIR" -and -not -path "$LICENSE_DIR") -t $LICENSE_DIR}                                                                                                   \
+%{__install} -Dm644 dist/.icon-set/icon_*16.png %{buildroot}%{_iconsdir}/hicolor/16x16/apps/%{?-i:%{-i*}}%{!?-i:%{name}}.png       \
+%{__install} -Dm644 dist/.icon-set/icon_*32.png %{buildroot}%{_iconsdir}/hicolor/32x32/apps/%{?-i:%{-i*}}%{!?-i:%{name}}.png       \
+%{__install} -Dm644 dist/.icon-set/icon_*48.png %{buildroot}%{_iconsdir}/hicolor/48x48/apps/%{?-i:%{-i*}}%{!?-i:%{name}}.png       \
+%{__install} -Dm644 dist/.icon-set/icon_*64.png %{buildroot}%{_iconsdir}/hicolor/64x64/apps/%{?-i:%{-i*}}%{!?-i:%{name}}.png       \
+%{__install} -Dm644 dist/.icon-set/icon_*128.png %{buildroot}%{_iconsdir}/hicolor/128x128/apps/%{?-i:%{-i*}}%{!?-i:%{name}}.png    \
+%{__install} -Dm644 dist/.icon-set/icon_*256.png %{buildroot}%{_iconsdir}/hicolor/256x256/apps/%{?-i:%{-i*}}%{!?-i:%{name}}.png    \
+%{__install} -Dm644 dist/.icon-set/icon_*512.png %{buildroot}%{_iconsdir}/hicolor/512x512/apps/%{?-i:%{-i*}}%{!?-i:%{name}}.png    \
+%{__install} -Dm644 dist/.icon-set/icon_*1024.png %{buildroot}%{_iconsdir}/hicolor/1024x1024/apps/%{?-i:%{-i*}}%{!?-i:%{name}}.png
