@@ -102,12 +102,12 @@ ExclusiveArch: %{electron_arches}
 
 # -e: "Exec." Execute commands though Bun directly. Not recommended for Electron Builder/Electron Vite commands.
 # -F: "Frozen lockfile." Build with a frozen lockfile.
-# -N: "No frozen lockfile." Override a project's frozen lockfile to build with an unfrozen one.
+# -N: "No save." Do not create a lockfile. Prevents any possible freezing.
 # -r: "Run." Project-specific scripts to run. Not recommended for Electron Builder/Electron Vite commands.
 # -v: "Vite." Run electron-vite builds
 %bun_build(eFNr:v)                                                                             \
 %{-F:%{-N:%{error:Can't use both -F and -N}}}                                                  \
-%{__bun} install %{-F:--frozen-lockfile}%{-N:--no-frozen-lockfile}                             \
+%{__bun} install %{-F:--frozen-lockfile}%{-N:--no-save}                                        \
 %{lua:
   if opt.e then
     print(macros["__bun"])
