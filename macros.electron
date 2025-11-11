@@ -70,7 +70,6 @@ Requires:      at-spi2-core                                                     
 Requires:      c-ares                                                                                                 \
 Requires:      gtk3%{!?with_bundled_electron:%{expand:
 Requires:      minizip}}                                                                                              \
-Requires:      libnotify                                                                                              \
 Requires:      (libuuid or libuuid1)                                                                                  \
 Requires:      libnotify                                                                                              \
 Requires:      libXScrnSaver                                                                                          \
