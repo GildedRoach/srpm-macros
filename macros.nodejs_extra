@@ -98,7 +98,7 @@ PNPM_HOME=%{rpmbuilddir}/pnpm curl -fsSL https://get.pnpm.io/install.sh | sh - \
   else
     module = rpm.expand("%{?npm_name}")
   end
-  prepbindir = rpm.expand("%{buildsubdir}/bin/")
+  prepbindir = os.getenv("PWD") .. "/bin/"
   moduledir = rpm.expand("%{buildroot}%{nodejs_sitelib}/%{npm_name}")
   if opt.a and rpm.expand("%{with js}") == '1' then
     error("'-a' cannot be used for JS packages.")
