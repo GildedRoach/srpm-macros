@@ -65,7 +65,6 @@ BuildRequires: git-core
 BuildRequires: make
 BuildRequires: nodejs
 BuildRequires: nodejs-npm
-BuildRequires: nodejs-packaging
 BuildRequires: python3}}                                                                                              \
 Requires:      at-spi2-core                                                                                           \
 Requires:      c-ares                                                                                                 \
