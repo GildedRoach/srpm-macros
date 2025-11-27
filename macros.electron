@@ -106,6 +106,8 @@ ExclusiveArch: %{electron_arches}
 # -R: "Remove lockfile." Remove the lockfile if it is causing issues (i.e., the project has forgotten to update a dependency in it)
 # -v: "Vite." Run electron-vite builds
 %bun_build(eFNRr:v)                                                                             \
+%{-R:%{warn:Removing bun.lock. This is not recommended unless absolutely necessary.}}           \
+%{-R:rm -f bun.lock}                                                                            \
 %{__bun} install %{-F:--force} %{-N:--no-save}                                                  \
 %{lua:
   if opt.e then
@@ -115,8 +117,6 @@ ExclusiveArch: %{electron_arches}
     end
     print("\\n")
   end}                                                                                         \
-%{-R:%{warn:Removing bun.lock. This is not recommended unless absolutely necessary.}}          \
-%{-R:rm -f bun.lock}                                                                           \
 %{-r:%{__bun} run %{-r*}}                                                                      \
 %{-v:HOME=%{rpmbuilddir} %{__bun} node_modules/electron-vite/bin/electron-vite.js build}       \
 HOME=%{rpmbuilddir} %{__bun} node_modules/electron-builder/cli.js --linux --%{_electron_cpu} --dir --publish=never
