@@ -32,7 +32,8 @@ AND
 ## Note: This does NOT automatically pull Bun/PNPM/Yarn or any other build dependencies. Those must be specified, this meta macro only sets the bare minimum that is consistently needed for Electron builds.
 # nodejs-packaging is REQUIRED if using NodeJS macros
 # Package requirements are only the requirements for Electron itself. Electron apps may have additional requirements.
-%electronmeta()                                                                                                       \
+# -a: "All/additional." Additional build deps that may be needed specifically for when building with NPM.
+%electronmeta(a)                                                                                                      \
 %global debug_package %{nil}                                                                                          \
 %global __provides_exclude ^((libffmpeg[.]so.*)|(lib.*\\.so.*))$                                                      \
 %{lua:
@@ -65,7 +66,9 @@ BuildRequires: git-core
 BuildRequires: make
 BuildRequires: nodejs
 BuildRequires: nodejs-npm
-BuildRequires: python3}}                                                                                              \
+BuildRequires: python3
+%{?-a:BuildRequires: nodejs-packaging}
+%{?-a:BuildRequires: typescript}}}                                                                                    \
 Requires:      at-spi2-core                                                                                           \
 Requires:      c-ares                                                                                                 \
 Requires:      gtk3%{!?with_bundled_electron:%{expand:
