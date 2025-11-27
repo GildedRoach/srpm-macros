@@ -54,7 +54,12 @@ PNPM_HOME=%{rpmbuilddir}/pnpm curl -fsSL https://get.pnpm.io/install.sh | sh - \
      error("%npm_name is not defined. Please define it using a global macro or with the -n flag.")
    end}                                                  \
    %{__npm} install -g %{npm_name}@%{version} --prefix=. \
-   %setup -T -D -n lib/node_modules/%{npm_name}
+   %setup -T -D -n lib/node_modules/%{npm_name}          \
+   %{lua:
+   prepbindir = os.getenv("PWD") .. "/bin/"
+   if posix.stat(prepbindir .. " *.js") then
+    rpm.define("_js .js")
+   end}
 
 # Fetch the Node tests within the spec. Uses Git commands that ONLY download specified directories
 # Files in the root of the repository need only their name
@@ -98,11 +103,7 @@ PNPM_HOME=%{rpmbuilddir}/pnpm curl -fsSL https://get.pnpm.io/install.sh | sh - \
   else
     module = rpm.expand("%{?npm_name}")
   end
-  prepbindir = os.getenv("PWD") .. "/bin/"
   moduledir = rpm.expand("%{buildroot}%{nodejs_sitelib}/%{npm_name}")
-  if posix.stat(prepbindir .. " *.js") then
-    rpm.define("_js .js")
-  end
   if opt.a then
     installdir = rpm.expand("%{buildroot}%{nodejs_sitearch}/%{npm_name}")
     installbin = rpm.expand("%{nodejs_sitearch}/%{npm_name}/bin/%{npm_name}%{?_js}")
