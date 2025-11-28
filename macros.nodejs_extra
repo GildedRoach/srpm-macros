@@ -160,8 +160,8 @@ YARN_CACHE_FOLDER="%{rpmbuilddir}/.yarn" ; export YARN_CACHE_FOLDER
   print("ln -sf " .. installbin .. " " .. bindir .. macros["node_bin_symlink"])
 }
 
-# Best used in check section
-# This will fail if ANY security vulnerabilities are found. It SHOULD NOT fail for other issues.
+## Best used in check section
+## This will fail if ANY security vulnerabilities are found. It SHOULD NOT fail for other issues.
 %npm_audit()                        \
    (                                \
    set -euo pipefail                \
@@ -169,9 +169,9 @@ YARN_CACHE_FOLDER="%{rpmbuilddir}/.yarn" ; export YARN_CACHE_FOLDER
    )
 
 ## Best used in prep section if check fails
+## Reference: https://docs.npmjs.com/cli/v7/commands/npm-audit
 # -d can be used to check what it will do before running, especially if using -f
 # -f should ONLY be used if absolutely necessary and SHOULD be tested locally on the module first, as it will potentially break dependencies
-# Reference: https://docs.npmjs.com/cli/v7/commands/npm-audit
 %npm_audit_fix(dfo:O:p)                              \
    (                                                 \
    set -euo pipefail                                 \
@@ -190,7 +190,7 @@ YARN_CACHE_FOLDER="%{rpmbuilddir}/.yarn" ; export YARN_CACHE_FOLDER
 ## NOTE: Technically Bun audit is a wrapper for NPM audit, however it unfortunately lacks the ability to FIX vulnerabilities
 ## There is no timeline for this being implemented, but there is a tracking issue: https://github.com/oven-sh/bun/issues/20238
 ## For now, you need to fix vulnerabilities, please see %%npm_audit_fix
-# NOTE: While alarming, if the audit fails on a dependency that is NOT bundled in the final program, you can ignore it.
+## NOTE: While alarming, if the audit fails on a dependency that is NOT bundled in the final program, you can ignore it.
 %bun_audit() NPM_CONFIG_AUDIT_LEVEL=low %{__bun} audit
 
 ## For use in check section
