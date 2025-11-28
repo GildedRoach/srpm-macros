@@ -1,12 +1,12 @@
-# Evaluation macro to expand later and a bcond for if Electron is bundled or not for meta/license macros so they can be used for Electron itself
-# with_bundled_electron alone does not work because the name macro is defined in the spec itself
+## Evaluation macro to expand later and a bcond for if Electron is bundled or not for meta/license macros so they can be used for Electron itself
+## with_bundled_electron alone does not work because the name macro is defined in the spec itself
 %is_electron_bundled() %bcond bundled_electron %["%{name}" != "electron"]
 
 %electron_arches %{x86_64} %{ix86} aarch64 armv7l armv7hl armv7hnl
 
 ## NOTE: Best for pure Electron programs. If packages use binaries not made with Electron Builder, when using this Macro care must be taken to not cause overlapping licenses.
-# The SOURCE LICENSE of Electron is MIT. However, as it uses Chromium code, the Chromium license comes bundled with it and all Electron apps. Electron ALSO bundles FFmpeg and code from vulkan-loader.
-# REMEMBER to add the license of the app itself if it is not covered here!
+## The SOURCE LICENSE of Electron is MIT. However, as it uses Chromium code, the Chromium license comes bundled with it and all Electron apps. Electron ALSO bundles FFmpeg and code from vulkan-loader.
+## REMEMBER to add the license of the app itself if it is not covered here!
 ## In order, the bundled licenses:
 # vulkan-loader: Apache-2.0
 # FFmpeg: LGPL-3.0-or-later
@@ -30,8 +30,8 @@ AND
 (BSD-3-Clause AND LGPL-2.1-or-later AND Apache-2.0 AND IJG AND MIT AND GPL-2.0-or-later AND ISC AND OpenSSL AND (MPL-1.1 OR GPL-2.0-only OR LGPL-2.0-only))}}
 
 ## Note: This does NOT automatically pull Bun/PNPM/Yarn or any other build dependencies. Those must be specified, this meta macro only sets the bare minimum that is consistently needed for Electron builds.
-# nodejs-packaging is REQUIRED if using NodeJS macros
-# Package requirements are only the requirements for Electron itself. Electron apps may have additional requirements.
+## nodejs-packaging is REQUIRED if using NodeJS macros
+## Package requirements are only the requirements for Electron itself. Electron apps may have additional requirements.
 # -a: "All/additional." Additional build deps that may be needed specifically for when building with NPM.
 %electronmeta(a)                                                                                                      \
 %global debug_package %{nil}                                                                                          \
@@ -86,9 +86,9 @@ Provides:      bundled(vulkan-loader)                                           
 ExclusiveArch: %{electron_arches}
 
 ## NPM is usually NOT how Electron projects are built and almost any other build system is preferrable. This macro has MANY flags to work around these and will fail if no necessary ones are detected. Capital letter flags are for use with calling Electron Builder.
-## Generally, -e and -r should be used. However, -E and -V can also be used if a project has a relatively simple build process.
+## Generally, -e and -r should be used. However, -E and -V can also be used if a project has a relatively simple build process or needs to execute commands additional to the Electron Builder/Electron Vite ones.
 ## Because of the way NPM projects are sometimes set up, -E and -V issue a warning.
-# -c: "CI." Boolean to use npm ci instead of npm install. Needed for some packages.
+# -c: "CI/Clean install." Boolean to use npm ci instead of npm install. Needed for some packages with stricter build deps.
 # -C: "Config." Direct Electron Builder to the config file. May be necessary with NPM.
 # -e: "Exec." Execute commands though NPM directly. Note that commands longer than one word MUST have -- follow the first word to be passed to the command.
 # -E: "electron-builder." Directly execute Electron Builder. Will NOT work in projects that need build commands executed via NodeJS instead of NPM.
