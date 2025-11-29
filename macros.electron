@@ -37,7 +37,7 @@ AND
 %global debug_package %{nil}                                                                                          \
 %global __provides_exclude ^((libffmpeg[.]so.*)|(lib.*\\.so.*))$                                                      \
 %{lua:
-  if not macros["_target_cpu"]:find('aarch64') and not macros["_target_cpu"]:find('armv7') then
+  if not macros["_target_cpu"]:find('armv7') then
     for arch in string.gmatch(macros["x86_64"], "%S+") do
       if macros["_target_cpu"] == arch then
         macros["__requires_exclude"] = '^((libffmpeg[.]so.*)|(lib.*\\\\.so.*)|(.*\\\\aarch64*\\\\so.*))$'
@@ -50,10 +50,13 @@ AND
         macros["_electron_cpu"] = 'ia32'
       end
     end
-  elseif macros["_target_cpu"]:find('aarch64') then
-    macros["__requires_exclude"] = '^((libffmpeg[.]so.*)|(lib.*\\\\.so.*)|(.*\\\\x86_64*\\\\.so.*)|(.*\\\\x86-64*\\\\.so.*))$'
-    macros["_electron_cpu"] = 'arm64'
-    print("BuildRequires: zlib-ng-compat-devel")
+    for arch in string.gmatch(macros["arm64"], "%S+") do
+      if macros["_target_cpu"] == arch then
+        macros["__requires_exclude"] = '^((libffmpeg[.]so.*)|(lib.*\\\\.so.*)|(.*\\\\x86_64*\\\\.so.*)|(.*\\\\x86-64*\\\\.so.*))$'
+        macros["_electron_cpu"] = 'arm64'
+        print("BuildRequires: zlib-ng-compat-devel")
+      end
+    end
   elseif macros["_target_cpu"]:find('armv7') then
     macros["__requires_exclude"] = '^((libffmpeg[.]so.*)|(lib.*\\\\.so.*)|(.*\\\\x86_64*\\\\.so.*)|(.*\\\\x86-64*\\\\.so.*)|(.*\\\\aarch64*\\\\so.*))$'
     macros["_electron_cpu"] = 'armv7l'
