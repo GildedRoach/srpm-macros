@@ -2,7 +2,7 @@
 ## %%with_bundled_electron alone does not work because the name macro is defined in the spec itself
 %is_electron_bundled() %bcond bundled_electron %["%{name}" != "electron"]
 
-%electron_arches %{x86_64} %{ix86} aarch64 armv7l armv7hl armv7hnl
+%electron_arches %{x86_64} %{ix86} %{arm64} armv7l armv7hl armv7hnl
 
 ## NOTE: Best for pure Electron programs. If packages use binaries not made with Electron Builder, when using this Macro care must be taken to not cause overlapping licenses.
 ## The SOURCE LICENSE of Electron is MIT. However, as it uses Chromium code, the Chromium license comes bundled with it and all Electron apps. Electron ALSO bundles FFmpeg and code from vulkan-loader.
