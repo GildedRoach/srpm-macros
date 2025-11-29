@@ -1,8 +1,11 @@
 ## Common env vars to be used for all NPM and descendents' macros
-%npm_common_vars NPM_CONFIG_USERCONFIG=%{rpmbuilddir}/.npmrc NPM_CONFIG_GLOBALCONFIG=%{rpmbuilddir}/npmrc NPM_CONFIG_CACHE=%{rpmbuilddir}/.npm NPM_CONFIG_LOGLEVEL=error NPM_CONFIG_FUND=false NPM_CONFIG_UPDATE_NOTIFIER=false NO_UPDATE_NOTIFIER=1 NPM_CONFIG_INIT_MODULE=%{rpmbuilddir}/.npm-init.js
+## NPM will default to the PROJECT SET config when environment variables are set in uppercase. This is intentional behavior and we don't override it as some build scripts rely on setting these variables to specific values. If you want to explicitly override all commands with these build flags, please use %%npm_buildflags in your calls to NPM.
+## For more information on the differences between uppercase and lowercase environment variables in NodeJS and NPM, see https://github.com/npm/npm/issues/14528
+## Reference: https://docs.npmjs.com/cli/v11/using-npm/config
+%npm_common_vars NPM_CONFIG_USERCONFIG=%{rpmbuilddir}/.npmrc NPM_CONFIG_GLOBALCONFIG=%{rpmbuilddir}/npmrc NPM_CONFIG_CACHE=%{rpmbuilddir}/.npm NPM_CONFIG_LOGLEVEL=error NPM_CONFIG_FUND=false NPM_CONFIG_UPDATE_NOTIFIER=false NO_UPDATE_NOTIFIER=1 NPM_CONFIG_COLOR=always NPM_CONFIG_INIT_MODULE=%{rpmbuilddir}/.npm-init.js
 
-## Build flags for NPM so they can be called independently if needed for any reason
-%npm_buildflags --userconfig=%{rpmbuilddir}/.npmrc --globalconfig=%{rpmbuilddir}/npmrc --cache=%{rpmbuilddir}/.npm --loglevel=error --fund=false --update-notifier=false --init-module=%{rpmbuilddir}/.npm-init.js
+## Build flags for NPM so they can be called independently to force our build config.
+%npm_buildflags --userconfig=%{rpmbuilddir}/.npmrc --globalconfig=%{rpmbuilddir}/npmrc --cache=%{rpmbuilddir}/.npm --loglevel=error --fund=false --update-notifier=false --color=always --init-module=%{rpmbuilddir}/.npm-init.js
 
 ## Only used if vendoring NodeJS
 %nvm_dir %{rpmbuilddir}/.nvm
@@ -23,25 +26,27 @@ nvm install %{?-v*}                                                             
 ## NOTE: NPX can escape the variables of the main shell in some situations. It may be necessary to call NPM from NPX with npm_buildflags set for consistent behavior.
 %__npx /usr/bin/env %{npm_common_vars} %{?with_vendored_nodejs:%{nvm_dir}/versions/node/v*/bin/npx}%{!?with_vendored_nodejs:/usr/bin/npx}
 
-## While Bun itself doesn't use NPM env vars directly, some NodeJS build deps such as Electron Builder do
+## While Bun itself doesn't use NPM env vars directly (and is its own JavaScript runtime independent to NodeJS), some Node module build deps such as Electron Builder do
 %__bun /usr/bin/env %{npm_common_vars} BUN_HOME=%{rpmbuilddir}/.bun BUN_RUNTIME_TRANSPILER_CACHE_PATH=0 /usr/bin/bun
 
 ## ONLY use if PNPM is not usable from the repos for some reason
 # -v "Version." Choose a specific version of PNPM to vendor
 %vendor_pnpm(v:)
-export PNPM_HOME=%{rpmbuilddir}/.pnpm                    \
+export PNPM_HOME="%{rpmbuilddir}/.pnpm"                  \
 curl -fsSL https://get.pnpm.io/install.sh | sh -         \
 %{?-v:%{rpmbuilddir}/.pnpm/pnpm env use --global %{-v*}} \
 %bcond vendored_pnpm 1
 
-## While PNPM itself doesn't use NPM env vars directly, some NodeJS build deps such as Electron Builder do
+## While PNPM itself doesn't use NPM env vars directly, some Node module build deps such as Electron Builder do
 %__pnpm /usr/bin/env %{npm_common_vars} PNPM_HOME=%{rpmbuilddir}/.pnpm %{?with_vendored_pnpm:%{rpmbuilddir}/.pnpm/pnpm}%{!?with_vendored_pnpm:/usr/bin/pnpm}
 
-## While Yarn itself doesn't use NPM env vars directly, some NodeJS build deps such as Electron Builder do
+## While Yarn itself doesn't use NPM env vars directly, some Node module build deps such as Electron Builder do
 %__yarn /usr/bin/env %{npm_common_vars} YARN_CACHE_FOLDER=%{rpmbuilddir}/.yarn /usr/bin/yarn
 
-## Export NodeJS related build flags globally if necessary for any reason.
-%set_node_envvars() \
+## Export Node module related build flags globally if necessary for any reason.
+## Based on Fedora's %%set_build_flags and can be used the same way or in combination with it.
+## Also creates a variable that can be called for our NPM build flags, similar to how Fedora supplies buildflags in both variables and macros.
+%set_nodejs_build_flags \
 NPM_CONFIG_USERCONFIG="%{rpmbuilddir}/.npmrc" ; export NPM_CONFIG_USERCONFIG ; \
 NPM_CONFIG_GLOBALCONFIG="%{rpmbuilddir}/npmrc" ; export NPM_CONFIG_GLOBALCONFIG ; \
 NPM_CONFIG_CACHE="%{rpmbuilddir}/.npm" ; export NPM_CONFIG_CACHE ; \
@@ -49,11 +54,13 @@ NPM_CONFIG_LOGLEVEL="error" ; export NPM_CONFIG_LOGLEVEL ; \
 NPM_CONFIG_FUND="false" ; export NPM_CONFIG_FUND ; \
 NPM_CONFIG_UPDATE_NOTIFIER="false" ; export NPM_CONFIG_UPDATE_NOTIFIER ; \
 NO_UPDATE_NOTIFIER="1" ; export NO_UPDATE_NOTIFIER ; \
+NPM_CONFIG_COLOR="always" ; export NPM_CONFIG_COLOR ; \
 NPM_CONFIG_INIT_MODULE="%{rpmbuilddir}/.npm-init.js" ; export NPM_CONFIG_INIT_MODULE ; \
 BUN_HOME="%{rpmbuilddir}/.bun" ; export BUN_HOME ; \
 BUN_RUNTIME_TRANSPILER_CACHE_PATH="0" ; export BUN_RUNTIME_TRANSPILER_CACHE_PATH ; \
 PNPM_HOME="%{rpmbuilddir}/.pnpm" ; export PNPM_HOME ; \
-YARN_CACHE_FOLDER="%{rpmbuilddir}/.yarn" ; export YARN_CACHE_FOLDER
+YARN_CACHE_FOLDER="%{rpmbuilddir}/.yarn" ; export YARN_CACHE_FOLDER \
+NPMFLAGS="%{npm_buildflags}" ; export NPMFLAGS
 
 ## These macros REQUIRE that the macro %%npm_name be defined or the module be passed to them
 
@@ -76,7 +83,7 @@ YARN_CACHE_FOLDER="%{rpmbuilddir}/.yarn" ; export YARN_CACHE_FOLDER
 ## Files in the root of the repository need only their name
 ## URL MAY include ".git" when using -u flag
 # -u: "URL." This MUST be set if the URL used in the spec is not automatically detectable as a clonable Git repository
-# fetch_node_tests -u https://github.com/nodepkgdev/nodepkgname /tests .eslintrc.json
+# %%fetch_node_tests -u https://github.com/nodepkgdev/nodepkgname /tests .eslintrc.json
 %fetch_node_tests(u:) %{lua:
   cmd = 'git clone -n --depth=1 --filter=tree:0 -q -j$(nproc) '
   if not arg[1] then error("Test folders/files not specified. Please list them, separated by spaces.") end
@@ -94,7 +101,7 @@ YARN_CACHE_FOLDER="%{rpmbuilddir}/.yarn" ; export YARN_CACHE_FOLDER
     if rpm.expand("%{-u*}"):find('://') and rpm.expand("%{-u*}"):find('.') then
       print(cmd .. rpm.expand("%{-u*} ") .. srcdir .. ' && cd ' .. srcdir)
     else
-      error("-u argument is not a clonable URL. Please make sure it is in the format of 'https://github.com/repo/project'")
+      error("-u argument could not be detected as a clonable URL. Please make sure it is in the format of 'https://github.com/repo/project' or try adding '.git' to the end.")
     end
   else
     error("URL could not be automatically identified as clonable and -u is not set. Please set a Git repository hosting the tests for this module using the -u option.")
@@ -107,7 +114,7 @@ YARN_CACHE_FOLDER="%{rpmbuilddir}/.yarn" ; export YARN_CACHE_FOLDER
 ## Install package. Defaults to %%nodejs_sitelib.
 # -a: "Arch." Install to sitearch instead. Currently unneeded as %%nodejs_sitelib and %%nodejs_sitearch are the same.
 # -s: "Symlink." Install bindir symlink as a different name than the npm_name.
-# TODO: Add READELF check to deprecate explicit -a option?
+# TODO: Deprecate -a flag to read the target arch instead.
 %npm_install(as:) %{lua:
   if not rpm.isdefined("npm_name") or not (rpm.isdefined("buildsubdir") and not rpm.isdefined("_buildsubdir")) then
     error("Package has not been prepped! Please run %npm_prep first.")
@@ -190,7 +197,7 @@ YARN_CACHE_FOLDER="%{rpmbuilddir}/.yarn" ; export YARN_CACHE_FOLDER
 ## NOTE: Technically Bun audit is a wrapper for NPM audit, however it unfortunately lacks the ability to FIX vulnerabilities
 ## There is no timeline for this being implemented, but there is a tracking issue: https://github.com/oven-sh/bun/issues/20238
 ## For now, you need to fix vulnerabilities, please see %%npm_audit_fix
-## NOTE: While alarming, if the audit fails on a dependency that is NOT bundled in the final program, you can ignore it.
+# NOTE: While alarming, if the audit fails on a dependency that is NOT bundled in the final program, you can ignore it.
 %bun_audit() NPM_CONFIG_AUDIT_LEVEL=low %{__bun} audit
 
 ## For use in check section
@@ -202,7 +209,24 @@ YARN_CACHE_FOLDER="%{rpmbuilddir}/.yarn" ; export YARN_CACHE_FOLDER
 ## WARNING: Does NOT support all the options NPM audit fix does. It may be preferable to use that instead as this will also fix build dependencies.
 %pnpm_audit_fix() NPM_CONFIG_AUDIT_LEVEL=low %{__pnpm} audit --fix
 
-## Approve dependency scripts if needed.
+## Approve dependency scripts with Bun if needed.
+# -a: "All." Approve all scripts. Use with caution.
+# Example: %%bun_pm_trust pkg1 pkg2
+%bun_pm_trust(a) \
+%{lua:
+if not opt.a and not arg[1] then
+  error("bun pm trust requires package names or -a for --all")
+elseif not opt.a then
+  print(rpm.expand("%{__bun} pm trust"))
+  for i, cmd in ipairs(arg) do
+    print(" " .. cmd)
+  end
+  print("\\n")
+elseif opt.a then
+  print(rpm.expand("%{__bun} pm trust --all"))
+end}
+
+## Approve dependency scripts with PNPM if needed.
 # -g: Direct duplicate of "-g" (global).
 %pnpm_approve_builds(g) %{__pnpm} approve-builds %{-g:-g}
 
